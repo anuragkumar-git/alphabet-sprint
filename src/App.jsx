@@ -12,7 +12,7 @@ const MEMORY_TRICKS = {
     H: "H can be 8",
     I: "Intel i9 Proccessor",
     J: "Samsungs J-10",
-    k: "Panjab Kings XI(11)",
+    K: "Panjab Kings XI(11)",
     L: "1.2-litre car engine",
     M: "Mein tera(13)",
     N: "N(14) after M(13)",
