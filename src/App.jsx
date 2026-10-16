@@ -361,6 +361,7 @@ export default function App() {
             }}
             disabled={Boolean(result)}
             placeholder={question.type === "position" ? "e.g. 12" : "e.g. Y"}
+            type={question.type === "position" ? "number" : ""}
             aria-label="Your answer"
             autoComplete="off"
           />
