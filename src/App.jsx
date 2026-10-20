@@ -50,8 +50,8 @@ const MEMORY_TRICKS = {
     R: "InfraRed light",
     J: "JQ-No single word in vocab",
     Q: "JQ-No single word in vocab",
-    K: "PK movie",
-    P: "PK movie",
+    K: "PK movie, Panjab Kings 11",
+    P: "PK movie, Panjab Kings 11",
     L: "LOve",
     O: "LOve",
     M: "MN",
@@ -141,19 +141,18 @@ function getTrick(question, tricks) {
 
 export default function App() {
   const [mode, setMode] = useState("mixed");
-
-  // The queue contains questions that have not yet been asked.
-  const [queue, setQueue] = useState(() => shuffle(createPool("mixed")));
-
-  const [question, setQuestion] = useState(() => queue[0]);
+  // The queue includes the current question at index 0, followed by unasked questions.
+  const [queue, setQueue] = useState([]);
+  const [question, setQuestion] = useState(null);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
   const [input, setInput] = useState("");
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [tricks, setTricks] = useState(MEMORY_TRICKS);
-  const [positionLetter, setPositionLetter] = useState("L");
-  const [pairLetter, setPairLetter] = useState("B");
+  const [testResults, setTestResults] = useState([]);
+  const [tricks] = useState(MEMORY_TRICKS);
 
-  const startedAt = useRef(performance.now());
+  const startedAt = useRef(null);
   const finished = useRef(false);
 
   const startTimer = () => {
@@ -161,14 +160,26 @@ export default function App() {
     finished.current = false;
   };
 
+  const startTest = (selectedMode = mode) => {
+    const freshQueue = shuffle(createPool(selectedMode));
+    setMode(selectedMode);
+    setQueue(freshQueue);
+    setQuestion(freshQueue[0] ?? null);
+    setInput("");
+    setResult(null);
+    setTestResults([]);
+    setHasStarted(true);
+    setIsComplete(false);
+    startTimer();
+  };
+
   const checkAnswer = useCallback(
     (rawAnswer) => {
-      if (finished.current || !rawAnswer.trim()) return;
+      if (finished.current || !question || !rawAnswer.trim()) return;
 
       const timeMs = performance.now() - startedAt.current;
       const value = rawAnswer.trim().toUpperCase();
       const correct = value === question.answer.toUpperCase();
-
       finished.current = true;
 
       const record = {
@@ -186,94 +197,84 @@ export default function App() {
 
       setResult(record);
       setHistory((old) => [record, ...old]);
+      setTestResults((old) => [...old, record]);
     },
     [question, tricks],
   );
 
   function handleInputChange(value) {
-    if (finished.current) return;
-
+    if (finished.current || !question) return;
     setInput(value);
 
     if (question.type === "position") {
-      // Wait for two digits, or use Check/Enter for single digits.
-      if (/^\d{2}$/.test(value.trim())) {
-        checkAnswer(value);
-      }
+      // Two-digit positions auto-check. For 1–9, press Check or Enter to avoid
+      // prematurely checking the first digit of a two-digit answer.
+      if (/^\d{2}$/.test(value.trim())) checkAnswer(value);
     } else if (/^[a-z]$/i.test(value.trim())) {
       checkAnswer(value);
     }
   }
 
   function nextQuestion() {
-    let next;
-    let remaining;
+    if (!result || queue.length <= 1) return;
 
-    if (queue.length > 1) {
-      next = queue[1];
-      remaining = queue.slice(1);
-    } else {
-      // Every unique question in this mode has been used.
-      // Start a new shuffled round.
-      remaining = shuffle(createPool(mode));
-      next = remaining[0];
-    }
-
+    const remaining = queue.slice(1);
     setQueue(remaining);
-    setQuestion(next);
+    setQuestion(remaining[0]);
     setInput("");
     setResult(null);
     startTimer();
   }
 
   function changeMode(nextMode) {
+    // Selecting a category prepares its test, but the user must press Start.
     setMode(nextMode);
-
-    const freshQueue = shuffle(createPool(nextMode));
-    setQueue(freshQueue);
-    setQuestion(freshQueue[0]);
+    setQueue([]);
+    setQuestion(null);
     setInput("");
     setResult(null);
-    startTimer();
+    setTestResults([]);
+    setHasStarted(false);
+    setIsComplete(false);
+    finished.current = false;
+    startedAt.current = null;
   }
 
-  function updateTrick(type, letter, value) {
-    setTricks((old) => {
-      if (type === "pair") {
-        const opposite = ALPHABET[25 - ALPHABET.indexOf(letter)];
-
-        return {
-          ...old,
-          pair: {
-            ...old.pair,
-            [letter]: value,
-            [opposite]: value,
-          },
-        };
-      }
-
-      return {
-        ...old,
-        [type]: {
-          ...old[type],
-          [letter]: value,
-        },
-      };
-    });
+  function finishTest() {
+    if (!result || queue.length > 1) return;
+    setIsComplete(true);
+    setHasStarted(false);
+    setQuestion(null);
+    setInput("");
   }
 
   function resetSession() {
     setHistory([]);
-    changeMode(mode);
+    setTestResults([]);
+    startTest(mode);
   }
 
   const correctCount = history.filter((item) => item.correct).length;
   const averageTime = history.length
     ? history.reduce((sum, item) => sum + item.timeMs, 0) / history.length
     : 0;
+  const testCorrect = testResults.filter((item) => item.correct).length;
+  const testAverage = testResults.length
+    ? testResults.reduce((sum, item) => sum + item.timeMs, 0) /
+      testResults.length
+    : 0;
 
-  const currentTrick = getTrick(question, tricks);
-  const remainingCount = queue.length;
+  // Remaining means questions after the currently displayed question.
+  // Before answering, include the current question in the displayed count;
+  // after answering, subtract it. Thus the final answered question shows 0.
+  const remainingCount = !hasStarted
+    ? 0
+    : Math.max(0, queue.length - (result ? 1 : 0));
+  const totalQuestions = hasStarted || isComplete ? createPool(mode).length : 0;
+  const answeredInTest = testResults.length;
+  const currentQuestionNumber = hasStarted
+    ? answeredInTest + (result ? 0 : 1)
+    : totalQuestions;
 
   return (
     <main className="trainer">
@@ -285,9 +286,8 @@ export default function App() {
             Build recall, improve speed, and use your own memory tricks.
           </p>
         </div>
-
         <div className="live-score">
-          <span>Accuracy</span>
+          <span>Overall accuracy</span>
           <strong>
             {history.length
               ? Math.round((correctCount / history.length) * 100)
@@ -307,7 +307,6 @@ export default function App() {
         <label className="section-label" htmlFor="mode">
           PRACTICE MODE
         </label>
-
         <select
           id="mode"
           value={mode}
@@ -328,86 +327,162 @@ export default function App() {
           ))}
         </select>
 
-        <div className="question">
-          <span className="question-number">
-            {remainingCount} QUESTIONS LEFT IN THIS ROUND
-          </span>
-
-          <h2>{question.prompt}</h2>
-
-          <p className="muted">
-            {question.type === "position"
-              ? "Type a number from 1 to 26."
-              : "Type one letter. The answer checks automatically."}
-          </p>
-
-        </div>
-
-        <div className="answer-row">
-          <input
-            value={input}
-            onChange={(event) => handleInputChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                if (result) nextQuestion();
-                else checkAnswer(input);
-              }
-            }}
-            disabled={Boolean(result)}
-            placeholder={question.type === "position" ? "e.g. 12" : "e.g. Y"}
-            type={question.type === "position" ? "number" : ""}
-            aria-label="Your answer"
-            autoComplete="off"
-          />
-
-          {!result ? (
-            <button
-              className="primary"
-              onClick={() => checkAnswer(input)}
-              disabled={!input.trim()}
-            >
-              Check
-            </button>
-          ) : (
-            <button autoFocus className="primary" onClick={nextQuestion}>
-              Next question →
-            </button>
-          )}
-        </div>
-
-        {result && (
-          <div
-            className={`feedback ${result.correct ? "correct" : "incorrect"}`}
-            role="status"
-          >
-            <strong>{result.correct ? "Correct 🎉" : "❗Incorrect"}</strong>
-
-
-            {result.yourAnswer != result.correctAnswer && (
-              <p>
-                Your answer: <b>{result.yourAnswer}</b>
-                {" · "}
-                Correct answer: <b>{result.correctAnswer}</b>
-              </p>
-            )}
-
-            <p>
-              Time taken: <b>{formatTime(result.timeMs)}</b>
-              {" · "}
-              Submitted: <b>{result.timestamp}</b>
+        {!hasStarted && !isComplete && (
+          <div className="test-intro">
+            <h2>Ready to practise?</h2>
+            <p className="muted">
+              {createPool(mode).length} unique questions in this round.
+              Questions are shuffled and won't repeat until the round is
+              complete.
             </p>
-
-            {result.trick && (
-              <p className="memory-hint">
-                Memory trick: <b>{result.trick}</b>
-              </p>
-            )}
+            <button
+              className="primary start-button"
+              onClick={() => startTest(mode)}
+            >
+              Start test
+            </button>
           </div>
         )}
 
-        <p className="keyboard-hint">
-          Enter checks your answer or advances to the next question.
-        </p>
+        {hasStarted && question && (
+          <>
+            <div className="round-status">
+              <span>
+                QUESTION {currentQuestionNumber} OF {totalQuestions}
+              </span>
+              <span>{remainingCount} LEFT AFTER THIS</span>
+            </div>
+            {/* Helpful addition: a progress bar makes it clear how far through the test you are. */}
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label="Test progress"
+              aria-valuemin={0}
+              aria-valuemax={totalQuestions}
+              aria-valuenow={answeredInTest}
+            >
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${Math.min(100, (answeredInTest / Math.max(1, totalQuestions)) * 100)}%`,
+                }}
+              />
+            </div>
+
+            <div className="question">
+              <h2>{question.prompt}</h2>
+              <p className="muted">
+                {question.type === "position"
+                  ? "Type a number from 1 to 26."
+                  : "Type one letter. The answer checks automatically."}
+              </p>
+            </div>
+
+            <div className="answer-row">
+              <input
+                autoFocus
+                value={input}
+                onChange={(event) => handleInputChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    if (result) {
+                      if (queue.length > 1) nextQuestion();
+                      else finishTest();
+                    } else {
+                      checkAnswer(input);
+                    }
+                  }
+                }}
+                disabled={Boolean(result)}
+                placeholder={
+                  question.type === "position" ? "e.g. 12" : "e.g. Y"
+                }
+                type={question.type === "position" ? "number" : "text"}
+                aria-label="Your answer"
+                autoComplete="off"
+              />
+
+              {!result ? (
+                <button
+                  className="primary"
+                  onClick={() => checkAnswer(input)}
+                  disabled={!input.trim()}
+                >
+                  Check
+                </button>
+              ) : queue.length > 1 ? (
+                <button className="primary" onClick={nextQuestion}>
+                  Next question →
+                </button>
+              ) : (
+                <button className="primary" onClick={finishTest}>
+                  Finish test
+                </button>
+              )}
+            </div>
+
+            {result && (
+              <div
+                className={`feedback ${result.correct ? "correct" : "incorrect"}`}
+                role="status"
+              >
+                <strong>{result.correct ? "Correct!" : "Incorrect"}</strong>
+                {!result.correct && (
+                  <p>
+                    Your answer: <b>{result.yourAnswer}</b>
+                    {" · "}Correct answer: <b>{result.correctAnswer}</b>
+                  </p>
+                )}
+                <p>
+                  Time taken: <b>{formatTime(result.timeMs)}</b>
+                  {" · "}Submitted: <b>{result.timestamp}</b>
+                </p>
+                {result.trick && (
+                  <p className="result-trick">
+                    Memory trick: <b>{result.trick}</b>
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="keyboard-hint">
+              Press Enter to check or advance. The timer stops when you submit.
+            </p>
+          </>
+        )}
+
+        {isComplete && (
+          <div className="completion">
+            <p className="eyebrow">ROUND COMPLETE</p>
+            <h2>Test finished</h2>
+            <p className="muted">
+              You've answered all {testResults.length} unique questions in this
+              round.
+            </p>
+            <div className="completion-stats">
+              <Stat
+                label="Correct"
+                value={`${testCorrect}/${testResults.length}`}
+              />
+              <Stat
+                label="Accuracy"
+                value={`${testResults.length ? Math.round((testCorrect / testResults.length) * 100) : 0}%`}
+              />
+              <Stat label="Avg. time" value={formatTime(testAverage)} />
+            </div>
+            <button
+              className="primary start-button"
+              onClick={() => startTest(mode)}
+            >
+              Start again
+            </button>
+            <button
+              className="secondary start-button"
+              onClick={() => changeMode(mode)}
+            >
+              Back to test setup
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="panel history-panel">
@@ -418,13 +493,12 @@ export default function App() {
               Answers, mnemonics, accuracy, and response times.
             </p>
           </div>
-
           <button
             className="secondary"
             onClick={resetSession}
             disabled={!history.length}
           >
-            Reset
+            Reset history & restart
           </button>
         </div>
 
@@ -443,7 +517,6 @@ export default function App() {
                   <th>Submitted</th>
                 </tr>
               </thead>
-
               <tbody>
                 {history.map((item) => (
                   <tr key={item.id}>
@@ -474,95 +547,6 @@ export default function App() {
           </div>
         )}
       </section>
-
-      {/* <section className="panel tricks-panel">
-        <h2>My memory tricks</h2>
-        <p className="muted">
-          Add your mnemonics here. They appear with matching questions and in
-          the answer history.
-        </p>
-
-        <div className="trick-editor">
-          <label htmlFor="position-letter">Position trick for letter</label>
-          <div className="trick-fields">
-            <select
-              id="position-letter"
-              value={question.type === "position" ? question.letter : "L"}
-              onChange={(event) => {
-                const letter = event.target.value;
-                setQuestion(makeQuestion("position", ALPHABET.indexOf(letter)));
-                setInput("");
-                setResult(null);
-                startTimer();
-              }}
-            >
-              {ALPHABET.map((letter) => (
-                <option key={letter} value={letter}>
-                  {letter}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={
-                tricks.position?.[
-                  question.type === "position" ? question.letter : "L"
-                ] || ""
-              }
-              onChange={(event) =>
-                updateTrick(
-                  "position",
-                  question.type === "position" ? question.letter : "L",
-                  event.target.value,
-                )
-              }
-              placeholder="e.g. 1.2-litre engine"
-            />
-          </div>
-
-          <label htmlFor="pair-letter">Pair trick for letter</label>
-          <div className="trick-fields">
-            <select
-              id="pair-letter"
-              value={question.type === "pair" ? question.letter : "B"}
-              onChange={(event) => {
-                const letter = event.target.value;
-                setQuestion(makeQuestion("pair", ALPHABET.indexOf(letter)));
-                setInput("");
-                setResult(null);
-                startTimer();
-              }}
-            >
-              {ALPHABET.map((letter) => (
-                <option key={letter} value={letter}>
-                  {letter}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={
-                tricks.pair?.[
-                  question.type === "pair" ? question.letter : "B"
-                ] || ""
-              }
-              onChange={(event) =>
-                updateTrick(
-                  "pair",
-                  question.type === "pair" ? question.letter : "B",
-                  event.target.value,
-                )
-              }
-              placeholder="e.g. BoY"
-            />
-          </div>
-        </div>
-
-        <p className="keyboard-hint">
-          These edits currently last only until you refresh the page. Add
-          localStorage persistence if you want to keep them permanently.
-        </p>
-      </section> */}
     </main>
   );
 }

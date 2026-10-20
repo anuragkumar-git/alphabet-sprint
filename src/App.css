@@ -392,3 +392,112 @@ th {
     gap: 7px;
   }
 }
+
+
+/* Test setup, progress, and completion states */
+.test-intro,
+.completion {
+  padding: 38px 0 12px;
+  text-align: center;
+}
+
+.test-intro h2,
+.completion h2 {
+  margin: 0 0 10px;
+  font-size: clamp(23px, 4vw, 30px);
+}
+
+.test-intro .muted,
+.completion .muted {
+  max-width: 540px;
+  margin: 0 auto 22px;
+}
+
+.start-button {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 18px;
+}
+
+.round-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+  color: #218653;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.round-status span:last-child {
+  color: #748078;
+  text-align: right;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9eee8;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #218653;
+  transition: width 180ms ease;
+}
+
+.completion {
+  padding-bottom: 0;
+}
+
+.completion .eyebrow {
+  margin-bottom: 10px;
+}
+
+.completion-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 22px 0;
+  text-align: left;
+}
+
+.completion-stats .stat {
+  padding: 14px;
+  min-width: 0;
+}
+
+.completion-stats .stat strong {
+  font-size: clamp(17px, 3vw, 24px);
+}
+
+.result-trick {
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 55%);
+}
+
+@media (max-width: 480px) {
+  .round-status {
+    font-size: 9px;
+    letter-spacing: 0.4px;
+  }
+
+  .completion-stats {
+    gap: 6px;
+  }
+
+  .completion-stats .stat {
+    padding: 10px 8px;
+  }
+
+  .completion-stats .stat span {
+    font-size: 11px;
+  }
+}
