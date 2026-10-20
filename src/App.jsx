@@ -7,7 +7,7 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 // Keys are the relevant letters. Values are your own mnemonics.
 const MEMORY_TRICKS = {
   position: {
-    F: "F-6 Function Key",
+    F: "F-6 Function Key, F-16 jet",
     G: "G-7 Summit",
     H: "H can be 8",
     I: "Intel i9 Proccessor",
@@ -341,12 +341,6 @@ export default function App() {
               : "Type one letter. The answer checks automatically."}
           </p>
 
-          {/* {currentTrick && (
-            <div className="memory-hint">
-              <span>YOUR MEMORY TRICK</span>
-              <strong>{currentTrick}</strong>
-            </div>
-          )} */}
         </div>
 
         <div className="answer-row">
@@ -386,13 +380,16 @@ export default function App() {
             className={`feedback ${result.correct ? "correct" : "incorrect"}`}
             role="status"
           >
-            <strong>{result.correct ? "Correct!" : "Incorrect"}</strong>
+            <strong>{result.correct ? "Correct 🎉" : "❗Incorrect"}</strong>
 
-            <p>
-              Your answer: <b>{result.yourAnswer}</b>
-              {" · "}
-              Correct answer: <b>{result.correctAnswer}</b>
-            </p>
+
+            {result.yourAnswer != result.correctAnswer && (
+              <p>
+                Your answer: <b>{result.yourAnswer}</b>
+                {" · "}
+                Correct answer: <b>{result.correctAnswer}</b>
+              </p>
+            )}
 
             <p>
               Time taken: <b>{formatTime(result.timeMs)}</b>
