@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -154,6 +154,23 @@ export default function App() {
 
   const startedAt = useRef(null);
   const finished = useRef(false);
+  const inputRef = useRef(null);
+  const nextButtonRef = useRef(null);
+  const startButtonRef = useRef(null);
+  const restartButtonRef = useRef(null);
+
+  // UX: move keyboard focus to the next useful control after every state change.
+  // This lets the whole quiz run with typing + Enter, without cursor travel.
+  useEffect(() => {
+    if (hasStarted && question) {
+      if (result) nextButtonRef.current?.focus();
+      else inputRef.current?.focus();
+    } else if (isComplete) {
+      restartButtonRef.current?.focus();
+    } else {
+      startButtonRef.current?.focus();
+    }
+  }, [hasStarted, isComplete, question?.id, result]);
 
   const startTimer = () => {
     startedAt.current = performance.now();
@@ -336,6 +353,7 @@ export default function App() {
               complete.
             </p>
             <button
+              ref={startButtonRef}
               className="primary start-button"
               onClick={() => startTest(mode)}
             >
@@ -380,7 +398,7 @@ export default function App() {
 
             <div className="answer-row">
               <input
-                autoFocus
+                ref={inputRef}
                 value={input}
                 onChange={(event) => handleInputChange(event.target.value)}
                 onKeyDown={(event) => {
@@ -411,11 +429,19 @@ export default function App() {
                   Check
                 </button>
               ) : queue.length > 1 ? (
-                <button className="primary" onClick={nextQuestion}>
+                <button
+                  ref={nextButtonRef}
+                  className="primary"
+                  onClick={nextQuestion}
+                >
                   Next question →
                 </button>
               ) : (
-                <button className="primary" onClick={finishTest}>
+                <button
+                  ref={nextButtonRef}
+                  className="primary"
+                  onClick={finishTest}
+                >
                   Finish test
                 </button>
               )}
@@ -470,6 +496,7 @@ export default function App() {
               <Stat label="Avg. time" value={formatTime(testAverage)} />
             </div>
             <button
+              ref={restartButtonRef}
               className="primary start-button"
               onClick={() => startTest(mode)}
             >
@@ -519,7 +546,19 @@ export default function App() {
               </thead>
               <tbody>
                 {history.map((item) => (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    style={
+                      !item.correct ? { backgroundColor: "#e9f7ed" } : undefined
+                    }
+                  >
+                    <td>
+                      <span
+                        className={item.correct ? "status-good" : "status-bad"}
+                      >
+                        {item.correct ? "Correct" : "Incorrect"}
+                      </span>
+                    </td>
                     <td>{item.prompt}</td>
                     <td>
                       {item.yourAnswer}
@@ -531,13 +570,6 @@ export default function App() {
                       )}
                     </td>
                     <td>{formatTime(item.timeMs)}</td>
-                    <td>
-                      <span
-                        className={item.correct ? "status-good" : "status-bad"}
-                      >
-                        {item.correct ? "Correct" : "Incorrect"}
-                      </span>
-                    </td>
                     <td>{item.trick || "—"}</td>
                     <td>{item.timestamp}</td>
                   </tr>
